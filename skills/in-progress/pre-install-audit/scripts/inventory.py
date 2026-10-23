@@ -11,6 +11,8 @@ import os
 import sys
 from pathlib import Path
 
+import run_log
+
 
 def inside(root: Path, candidate: Path) -> bool:
     try:
@@ -91,13 +93,23 @@ def os_walk_nofollow(root: Path):
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="List files in a clone without following symlinks.")
     parser.add_argument("--root", required=True, help="Clone directory to list.")
+    parser.add_argument("--run-log", required=True)
     args = parser.parse_args(argv)
     root = Path(args.root)
+    log_path = Path(args.run_log)
     if not root.is_dir():
         print("refusing: root is not a directory", file=sys.stderr)
         return 1
+    error = run_log.validate_log_path(log_path, root)
+    if error:
+        print(error, file=sys.stderr)
+        return 1
     for row in inventory(root):
         print(row)
+    logged = run_log.append_event(log_path, f"python3 scripts/inventory.py --root {root}", [], root)
+    if logged:
+        print(logged, file=sys.stderr)
+        return 1
     return 0
 
 

@@ -1,4 +1,6 @@
-# Checklist: file and line evidence
+# Control: file and line evidence
+
+This file is a control, not an audit item.
 
 Every finding the report relies on points at a line in the pinned commit, or at the inventory when the finding is that a path is absent.
 
@@ -11,6 +13,8 @@ path/from/clone/root:17: the line text
 ```
 
 Take that line from `scripts/show_lines.py`. Keep the path relative to the clone root. When a line is longer than the script prints, keep the script's truncation marker so the quote matches the tool output.
+
+A secret is not quoted in full. Record `path:line` and a 2 to 4 character preview, and leave the value out. The private-data check already prints that preview.
 
 ## Absence
 

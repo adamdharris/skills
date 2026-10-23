@@ -1,6 +1,17 @@
-# Checklist: supply chain
+# Control: supply chain
 
-This item records a Socket supply-chain check for a package the user names, or for a package name you can cite from a manifest in the clone. Read the manifest with `scripts/show_lines.py` and cite the name at `path:line`. When you cannot tell the package name, leave the item open and ask the user for the name. Do not guess a package.
+This file is a control, not an audit item. The package and publisher audit item uses the colour you record here.
+
+Record a Socket supply-chain check for a package the user names, or for a package name you can cite from a manifest in the clone. Read the manifest with `scripts/show_lines.py` and cite the name at `path:line`. When you cannot tell the package name, ask the user. Do not guess a package.
+
+Set the header Socket result to one of green, amber, red, or not run:
+
+- green: the saved result, the page, or the pasted verdict shows no alerts
+- amber: it shows warnings and does not show malware
+- red: it shows malware or a critical alert
+- not run: none of the three paths below produced a result
+
+Green is required for ADOPT. Missing, not run, amber, and red block ADOPT. Red is REJECT when it is malware, and PIN AND HARDEN otherwise, unless another REJECT rule applies.
 
 Run this item on a machine outside the sandbox. That machine does not hold the clone. The token stays in the environment variable `SOCKET_API_TOKEN` on that machine. You have no token in the sandbox, and you do not call Socket from the sandbox.
 
@@ -15,6 +26,7 @@ python3 scripts/socket_supply_chain.py \
   --ecosystem npm \
   --name "<package-name>" \
   --version "<version>" \
+  --run-log "<run-log>" \
   --execute \
   --outside-sandbox
 ```
@@ -51,4 +63,4 @@ The user confirms the audit verdict before any install. Record whether they have
 - The section states that the check ran outside the sandbox, or that it did not run and which of the later paths was used.
 - The token is absent from the report, the command log, and any file this skill wrote.
 
-Done when those lines are met. When none of the three paths has a result, the item stays open and the verdict is inconclusive.
+Done when those lines are met and the header colour matches the path you used. When none of the three paths has a result, the colour is not run, and the verdict cannot be ADOPT.

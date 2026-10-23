@@ -16,7 +16,10 @@ import subprocess
 import sys
 from pathlib import Path
 
+import run_log
+
 REF_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._/-]{0,200}$")
+SHA_RE = re.compile(r"^[0-9a-fA-F]{40}$")
 LOCAL_HOSTS = {"localhost", "127.0.0.1", "0.0.0.0", "::1"}
 
 
@@ -173,31 +176,66 @@ def local_names(dest: Path) -> str:
     return "\n".join(lines)
 
 
-def clone_remote(url: str, dest: Path) -> subprocess.CompletedProcess[str]:
-    return run_git(
-        [
-            "git",
-            "-c",
-            "core.hooksPath=/dev/null",
-            "-c",
-            "protocol.file.allow=never",
-            "clone",
-            "--no-checkout",
-            "--no-recurse-submodules",
-            "--config",
-            "core.hooksPath=/dev/null",
-            "--",
-            url,
-            str(dest),
-        ]
-    )
+def is_full_sha(ref: str | None) -> bool:
+    return bool(ref and SHA_RE.fullmatch(ref))
+
+
+def host_of(url: str) -> str:
+    if url.startswith("https://") or url.startswith("ssh://"):
+        rest = url.split("://", 1)[1]
+        rest = rest.split("@")[-1]
+        return rest.split("/")[0].split(":")[0]
+    if url.startswith("git@"):
+        return url.split("@", 1)[1].split(":", 1)[0]
+    return ""
+
+
+def clone_argv(url: str, dest: Path, ref: str | None) -> list[str]:
+    command = [
+        "git",
+        "-c",
+        "core.hooksPath=/dev/null",
+        "-c",
+        "protocol.file.allow=never",
+        "clone",
+        "--depth",
+        "1",
+        "--single-branch",
+        "--no-recurse-submodules",
+        "--config",
+        "core.hooksPath=/dev/null",
+    ]
+    if ref:
+        command.extend(["--branch", ref])
+    command.extend(["--", url, str(dest)])
+    return command
+
+
+def fetch_argv(dest: Path, sha: str) -> list[str]:
+    return [
+        "git",
+        "-C",
+        str(dest),
+        "-c",
+        "core.hooksPath=/dev/null",
+        "-c",
+        "protocol.file.allow=never",
+        "fetch",
+        "--depth",
+        "1",
+        "--no-tags",
+        "--recurse-submodules=no",
+        "origin",
+        sha,
+    ]
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Clone a remote repository once and print its commit SHA.")
     parser.add_argument("--url", help="Remote git URL. Required unless --reuse is set.")
     parser.add_argument("--dest", required=True, help="New directory for the clone, outside this skills repository.")
-    parser.add_argument("--ref", help="Branch, tag, or commit to pin. Resolved locally after the clone.")
+    parser.add_argument("--ref", help="Branch, tag, or full commit SHA to pin at depth 1.")
+    parser.add_argument("--run-log", required=True, help="Append-only log. Must sit outside the clone and this repository.")
     parser.add_argument(
         "--reuse",
         action="store_true",
@@ -212,16 +250,23 @@ def main(argv: list[str] | None = None) -> int:
             return 1
 
     dest = Path(args.dest)
+    log_path = Path(args.run_log)
     blocked = refuse_destination(dest)
     if blocked:
         print(blocked, file=sys.stderr)
+        return 1
+    log_error = run_log.validate_log_path(log_path, dest)
+    if log_error:
+        print(log_error, file=sys.stderr)
         return 1
 
     if args.reuse:
         if not (dest / ".git").is_dir():
             print("refusing --reuse: dest is not a git clone", file=sys.stderr)
             return 1
-        return _pin(dest, args.ref)
+        code = _pin(dest, args.ref)
+        _record(log_path, f"clone_once.py --reuse --dest {dest}", [], dest)
+        return code
 
     if not args.url:
         print("refusing: --url is required when --reuse is not set", file=sys.stderr)
@@ -234,21 +279,58 @@ def main(argv: list[str] | None = None) -> int:
         print("refusing: dest already exists, so this would not be one fresh clone", file=sys.stderr)
         return 1
 
+    host = host_of(args.url)
     created = False
     try:
-        cloned = clone_remote(args.url, dest)
+        if is_full_sha(args.ref):
+            code = _clone_sha(args.url, dest, args.ref or "")
+        else:
+            code = _clone_branch(args.url, dest, args.ref)
         created = dest.exists()
-        if cloned.returncode != 0:
-            sys.stderr.write(cloned.stderr)
-            if created:
-                shutil.rmtree(dest)
-            return 3
-        return _pin(dest, args.ref)
+        if code != 0 and created:
+            shutil.rmtree(dest, ignore_errors=True)
+        _record(log_path, f"clone_once.py --url {args.url} --dest {dest} --ref {args.ref or '-'}", [host], None)
+        return code
     except OSError as exc:
         print(f"clone failed: {exc.__class__.__name__}", file=sys.stderr)
-        if created and dest.exists():
+        if dest.exists():
             shutil.rmtree(dest, ignore_errors=True)
+        _record(log_path, f"clone_once.py --url {args.url} --dest {dest}", [host], None)
         return 3
+
+
+def _record(log_path: Path, command: str, hosts: list[str], deny_root: Path | None) -> None:
+    error = run_log.append_event(log_path, command, hosts, deny_root)
+    if error:
+        print(error, file=sys.stderr)
+
+
+def _clone_branch(url: str, dest: Path, ref: str | None) -> int:
+    cloned = run_git(clone_argv(url, dest, ref))
+    if cloned.returncode != 0:
+        sys.stderr.write(cloned.stderr)
+        return 3
+    return _pin(dest, None)
+
+
+def _clone_sha(url: str, dest: Path, sha: str) -> int:
+    init = run_git(["git", "-c", "core.hooksPath=/dev/null", "init", "--quiet", str(dest)])
+    if init.returncode != 0:
+        sys.stderr.write(init.stderr)
+        return 3
+    configured = run_git(["git", "-C", str(dest), "config", "core.hooksPath", "/dev/null"])
+    if configured.returncode != 0:
+        sys.stderr.write(configured.stderr)
+        return 3
+    remote = run_git(["git", "-C", str(dest), "remote", "add", "origin", url])
+    if remote.returncode != 0:
+        sys.stderr.write(remote.stderr)
+        return 3
+    fetched = run_git(fetch_argv(dest, sha))
+    if fetched.returncode != 0:
+        sys.stderr.write(fetched.stderr)
+        return 3
+    return _pin(dest, "FETCH_HEAD")
 
 
 def _pin(dest: Path, ref: str | None) -> int:
@@ -267,6 +349,9 @@ def _pin(dest: Path, ref: str | None) -> int:
     if confirmed != sha:
         print(confirm_err or "checkout did not leave HEAD on the pinned SHA", file=sys.stderr)
         return 3
+    shallow = run_git(["git", "-C", str(dest), "rev-parse", "--is-shallow-repository"])
+    if shallow.stdout.strip() != "true":
+        print("warning: the retrieval asked for depth 1 and the result is not shallow", file=sys.stderr)
     print(f"sha={sha}")
     print(f"path={dest.resolve()}")
     return 0

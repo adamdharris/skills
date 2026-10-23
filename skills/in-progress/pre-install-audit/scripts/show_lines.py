@@ -10,6 +10,8 @@ import argparse
 import sys
 from pathlib import Path
 
+import run_log
+
 MAX_LINE = 500
 
 
@@ -46,6 +48,7 @@ def format_line(relative: str, number: int, text: str) -> str:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Print path:line quotes from one file.")
     parser.add_argument("--root", required=True)
+    parser.add_argument("--run-log", required=True)
     parser.add_argument("--path", required=True, help="Path relative to root.")
     parser.add_argument("--start", type=int, default=1)
     parser.add_argument("--end", type=int, default=0, help="Last line to print. 0 means through the end.")
@@ -55,24 +58,42 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     root = Path(args.root)
+    log_path = Path(args.run_log)
     if not root.is_dir():
         print("refusing: root is not a directory", file=sys.stderr)
         return 1
+    error = run_log.validate_log_path(log_path, root)
+    if error:
+        print(error, file=sys.stderr)
+        return 1
+
+    def finish(code: int) -> int:
+        logged = run_log.append_event(
+            log_path,
+            f"python3 scripts/show_lines.py --root {root} --path {args.path}",
+            [],
+            root,
+        )
+        if logged:
+            print(logged, file=sys.stderr)
+            return 1
+        return code
+
     located = resolve_inside(root, args.path)
     if isinstance(located, str):
         print(located, file=sys.stderr)
-        return 1
+        return finish(1)
     if not located.is_file():
         print("refusing: path is not a file", file=sys.stderr)
-        return 1
+        return finish(1)
     if located.stat().st_size > 1_000_000:
         print("refusing: file is larger than 1000000 bytes", file=sys.stderr)
-        return 2
+        return finish(2)
 
     blob = located.read_bytes()
     if b"\0" in blob[:8192]:
         print("refusing: file looks binary, so there are no text lines to quote", file=sys.stderr)
-        return 2
+        return finish(2)
 
     relative = Path(args.path).as_posix()
     text = blob.decode("utf-8", errors="replace").splitlines()
@@ -85,8 +106,8 @@ def main(argv: list[str] | None = None) -> int:
         printed += 1
     if printed == 0:
         print("no lines in the requested range", file=sys.stderr)
-        return 2
-    return 0
+        return finish(2)
+    return finish(0)
 
 
 if __name__ == "__main__":

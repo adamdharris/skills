@@ -21,6 +21,8 @@ import urllib.request
 from pathlib import Path
 from urllib.parse import quote
 
+import run_log
+
 API_ROOT = "https://api.socket.dev/v0"
 NAME_RE = re.compile(r"^[A-Za-z0-9_.@/-]{1,200}$")
 ORG_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9-]{0,63}$")
@@ -137,6 +139,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--purl", help="Package URL. Use this or --ecosystem and --name.")
     parser.add_argument("--org", help="Optional organization slug for the current API route.")
     parser.add_argument("--output", help="Write JSON here instead of stdout. Must sit outside this skills repository.")
+    parser.add_argument("--run-log", required=True, help="Append-only log outside the clone and this repository.")
     parser.add_argument("--execute", action="store_true", help="Send the one API request.")
     parser.add_argument(
         "--outside-sandbox",
@@ -144,6 +147,19 @@ def main(argv: list[str] | None = None) -> int:
         help="Confirm this process is on a machine outside the sandbox that does not hold the clone.",
     )
     args = parser.parse_args(argv)
+    log_path = Path(args.run_log)
+    log_error = run_log.validate_log_path(log_path, None)
+    if log_error:
+        print(log_error, file=sys.stderr)
+        return 1
+
+    def record(hosts: list[str]) -> None:
+        command = "python3 scripts/socket_supply_chain.py"
+        if args.ecosystem and args.name:
+            command += f" --ecosystem {args.ecosystem} --name {args.name}"
+        error = run_log.append_event(log_path, command, hosts, None)
+        if error:
+            print(error, file=sys.stderr)
 
     token = os.environ.get("SOCKET_API_TOKEN", "")
     if args.purl:
@@ -186,10 +202,12 @@ def main(argv: list[str] | None = None) -> int:
     if not token_usable(token):
         pending["reason"] = "token-missing"
         emit(pending, token, args.output)
+        record([])
         return 2
     if not args.execute or not args.outside_sandbox:
         pending["reason"] = "not-executed"
         emit(pending, token, args.output)
+        record([])
         return 2
 
     url = request_url(args.org)
@@ -201,6 +219,7 @@ def main(argv: list[str] | None = None) -> int:
         print(message, file=sys.stderr)
         pending["reason"] = "request-failed"
         emit(pending, token, args.output)
+        record(["api.socket.dev"])
         return 4
 
     document = {
@@ -213,6 +232,7 @@ def main(argv: list[str] | None = None) -> int:
         "body": body,
     }
     emit(document, token, args.output)
+    record(["api.socket.dev"])
     if status != 200:
         return 4
     return 0
