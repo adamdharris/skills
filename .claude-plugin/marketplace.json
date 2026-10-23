@@ -1,0 +1,10 @@
+{
+  "name": "adamdharris-skills",
+  "owner": {
+    "name": "Adam Harris"
+  },
+  "metadata": {
+    "description": "Public agent skills. In-progress skills stay out of this catalog until they are promoted."
+  },
+  "plugins": []
+}
