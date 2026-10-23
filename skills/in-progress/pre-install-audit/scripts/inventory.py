@@ -106,7 +106,7 @@ def main(argv: list[str] | None = None) -> int:
         return 1
     for row in inventory(root):
         print(row)
-    logged = run_log.append_event(log_path, f"python3 scripts/inventory.py --root {root}", [], root)
+    logged = run_log.append_event(log_path, "inventory.py", ["--root", "--run-log"], [], 0, root)
     if logged:
         print(logged, file=sys.stderr)
         return 1

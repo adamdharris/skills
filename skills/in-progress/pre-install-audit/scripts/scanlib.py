@@ -260,7 +260,8 @@ def agent_instruction_hits(root: Path) -> list[str]:
 
 def _magic_kind(path: Path) -> str | None:
     try:
-        blob = path.read_bytes()[:4]
+        with path.open("rb") as handle:
+            blob = handle.read(4)
     except OSError:
         return None
     if blob.startswith(b"MZ"):
@@ -276,7 +277,16 @@ def binary_hits(root: Path) -> list[str]:
     hits: list[str] = []
     for path in _walk_files(root):
         rel = _relative(root, path)
+        try:
+            size = path.stat().st_size
+        except OSError:
+            continue
         suffix = path.suffix.lower()
+        if size > TEXT_LIMIT:
+            hits.append(f"{rel}:1: large file")
+            if suffix in PACKED_EXTENSIONS:
+                hits.append(f"{rel}:1: extension {suffix}")
+            continue
         if suffix in PACKED_EXTENSIONS:
             hits.append(f"{rel}:1: extension {suffix}")
             continue
@@ -435,8 +445,10 @@ def execute(script_name: str, scanner, argv: list[str] | None = None) -> int:
         print(line)
     logged = run_log.append_event(
         log_path,
-        f"python3 scripts/{script_name} --root {root} --run-log {log_path}",
+        script_name,
+        ["--root", "--run-log"],
         [],
+        0,
         root,
     )
     if logged:

@@ -2,7 +2,7 @@
 
 This file is a control, not an audit item.
 
-The depth-1 retrieval is the only retrieval of the audited code. After `scripts/clone_once.py` returns, the working copy is for reading. Every command is a line in the append-only run log, including the host it contacted, or `-` when it contacted none.
+The depth-1 retrieval is the only retrieval of the audited code. After `scripts/clone_once.py` returns, the working copy is for reading. Every command is a line in the append-only run log: the script name, the argument names, the hosts it contacted or `-`, and the exit code. Argument values are not logged.
 
 ## Allowed commands against the clone
 
@@ -21,7 +21,7 @@ The depth-1 retrieval is the only retrieval of the audited code. After `scripts/
 - `git -C <clone> branch -a`
 - `git -C <clone> tag`
 
-Log a git command with `scripts/run_log.py` before you run it. `git branch` and `git tag` read what the clone already has. They are not a fetch.
+After a git command returns, log it with `scripts/run_log.py --script git --arg <name> --exit <code>`. Pass flag names and the subcommands `rev-parse`, `status`, `branch`, and `tag` only. `git branch` and `git tag` read what the clone already has. They are not a fetch.
 
 ## Mark each line
 

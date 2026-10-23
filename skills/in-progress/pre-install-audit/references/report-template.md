@@ -7,11 +7,11 @@ Copy this skeleton into a new file outside this skills repository and outside th
 | Field | Value |
 |---|---|
 | Repo URL | <https://github.com/org/repo> |
-| Commit SHA | <40-character SHA> |
+| Commit SHA (full) | <40-character SHA> |
 | Package and version | <npm or PyPI name>@<exact version>, or "none" |
 | Publisher | <registry publisher> |
 | Audit date (AEST) | <YYYY-MM-DD HH:MM> |
-| Auditor skill version | pre-install-audit skill v<x.y> |
+| Auditor skill version | pre-install-audit skill v<x.y>, run by <person> |
 | Sandbox | <Vercel Sandbox (region) or local Docker fallback>; network after clone: <off or allow list> |
 | Socket result | <green / amber / red / not run>, link: <url> |
 | Verdict | <ADOPT / PIN AND HARDEN / REJECT> |

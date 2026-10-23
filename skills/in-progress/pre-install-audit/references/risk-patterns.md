@@ -50,7 +50,8 @@ The read-only checks search for these patterns and print file:line hits. They do
 `scripts/check_binaries.py`
 
 - Extensions `.exe`, `.dll`, `.so`, `.dylib`, `.bin`, `.node`, `.wasm`, `.jar`.
-- File magic for MZ, ELF, and Mach-O. The hit names the kind. It does not print bytes.
+- File magic for MZ, ELF, and Mach-O, read from the first 4 bytes. The hit names the kind. It does not print bytes.
+- A file larger than 1000000 bytes is a `large file` hit. That file is not read.
 
 ## Private data in skill files
 

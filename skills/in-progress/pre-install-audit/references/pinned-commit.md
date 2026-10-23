@@ -12,4 +12,4 @@ Mark each line met or failed.
 - `git -C <clone> rev-parse HEAD` prints that same SHA.
 - Later notes in the report name that SHA. They do not switch back to a branch name.
 
-Done when those lines are met and the Commit SHA header is the SHA from the clone. If the ref was not in that depth-1 retrieval, stop. Do not fetch again. The verdict cannot be ADOPT until a SHA is pinned.
+Done when those lines are met and the Commit SHA (full) header is the SHA from the clone. If the ref was not in that depth-1 retrieval, stop. Do not fetch again. The verdict cannot be ADOPT until a SHA is pinned.

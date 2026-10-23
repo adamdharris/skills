@@ -68,12 +68,12 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     def finish(code: int) -> int:
-        logged = run_log.append_event(
-            log_path,
-            f"python3 scripts/show_lines.py --root {root} --path {args.path}",
-            [],
-            root,
-        )
+        names = ["--root", "--run-log", "--path"]
+        if args.start != 1:
+            names.append("--start")
+        if args.end != 0:
+            names.append("--end")
+        logged = run_log.append_event(log_path, "show_lines.py", names, [], code, root)
         if logged:
             print(logged, file=sys.stderr)
             return 1

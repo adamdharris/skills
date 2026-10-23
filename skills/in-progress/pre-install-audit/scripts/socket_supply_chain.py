@@ -153,11 +153,21 @@ def main(argv: list[str] | None = None) -> int:
         print(log_error, file=sys.stderr)
         return 1
 
-    def record(hosts: list[str]) -> None:
-        command = "python3 scripts/socket_supply_chain.py"
-        if args.ecosystem and args.name:
-            command += f" --ecosystem {args.ecosystem} --name {args.name}"
-        error = run_log.append_event(log_path, command, hosts, None)
+    def record(hosts: list[str], exit_code: int) -> None:
+        names = ["--run-log"]
+        for flag, present in (
+            ("--ecosystem", bool(args.ecosystem)),
+            ("--name", bool(args.name)),
+            ("--version", bool(args.version)),
+            ("--purl", bool(args.purl)),
+            ("--org", bool(args.org)),
+            ("--output", bool(args.output)),
+            ("--execute", bool(args.execute)),
+            ("--outside-sandbox", bool(args.outside_sandbox)),
+        ):
+            if present:
+                names.append(flag)
+        error = run_log.append_event(log_path, "socket_supply_chain.py", names, hosts, exit_code, None)
         if error:
             print(error, file=sys.stderr)
 
@@ -202,12 +212,12 @@ def main(argv: list[str] | None = None) -> int:
     if not token_usable(token):
         pending["reason"] = "token-missing"
         emit(pending, token, args.output)
-        record([])
+        record([], 2)
         return 2
     if not args.execute or not args.outside_sandbox:
         pending["reason"] = "not-executed"
         emit(pending, token, args.output)
-        record([])
+        record([], 2)
         return 2
 
     url = request_url(args.org)
@@ -219,7 +229,7 @@ def main(argv: list[str] | None = None) -> int:
         print(message, file=sys.stderr)
         pending["reason"] = "request-failed"
         emit(pending, token, args.output)
-        record(["api.socket.dev"])
+        record(["api.socket.dev"], 4)
         return 4
 
     document = {
@@ -232,10 +242,9 @@ def main(argv: list[str] | None = None) -> int:
         "body": body,
     }
     emit(document, token, args.output)
-    record(["api.socket.dev"])
-    if status != 200:
-        return 4
-    return 0
+    code = 0 if status == 200 else 4
+    record(["api.socket.dev"], code)
+    return code
 
 
 if __name__ == "__main__":

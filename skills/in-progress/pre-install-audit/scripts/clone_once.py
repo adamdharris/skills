@@ -265,7 +265,10 @@ def main(argv: list[str] | None = None) -> int:
             print("refusing --reuse: dest is not a git clone", file=sys.stderr)
             return 1
         code = _pin(dest, args.ref)
-        _record(log_path, f"clone_once.py --reuse --dest {dest}", [], dest)
+        names = ["--reuse", "--dest", "--run-log"]
+        if args.ref:
+            names.append("--ref")
+        _record(log_path, names, [], code, dest)
         return code
 
     if not args.url:
@@ -289,18 +292,21 @@ def main(argv: list[str] | None = None) -> int:
         created = dest.exists()
         if code != 0 and created:
             shutil.rmtree(dest, ignore_errors=True)
-        _record(log_path, f"clone_once.py --url {args.url} --dest {dest} --ref {args.ref or '-'}", [host], None)
+        names = ["--url", "--dest", "--run-log"]
+        if args.ref:
+            names.append("--ref")
+        _record(log_path, names, [host], code, None)
         return code
     except OSError as exc:
         print(f"clone failed: {exc.__class__.__name__}", file=sys.stderr)
         if dest.exists():
             shutil.rmtree(dest, ignore_errors=True)
-        _record(log_path, f"clone_once.py --url {args.url} --dest {dest}", [host], None)
+        _record(log_path, ["--url", "--dest", "--run-log"], [host], 3, None)
         return 3
 
 
-def _record(log_path: Path, command: str, hosts: list[str], deny_root: Path | None) -> None:
-    error = run_log.append_event(log_path, command, hosts, deny_root)
+def _record(log_path: Path, arg_names: list[str], hosts: list[str], exit_code: int, deny_root: Path | None) -> None:
+    error = run_log.append_event(log_path, "clone_once.py", arg_names, hosts, exit_code, deny_root)
     if error:
         print(error, file=sys.stderr)
 
