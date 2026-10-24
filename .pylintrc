@@ -1,0 +1,29 @@
+[MESSAGES CONTROL]
+# missing-function-docstring: each script already documents its job in the module docstring.
+# line-too-long: existing lines are longer than pylint's 100-character default.
+# duplicate-code: the check scripts repeat the same argument parsing and log setup on purpose.
+# too-many-return-statements: numeric limit only, in clone_once, show_lines, and socket_supply_chain.
+# too-many-branches: numeric limit only, in clone_once.main.
+# too-many-statements: numeric limit only, in clone_once.main and socket_supply_chain.main.
+# too-many-arguments: numeric limit only, on append_event and _NoRedirect.redirect_request.
+# too-many-positional-arguments: numeric limit only, on the same two functions as too-many-arguments.
+# too-many-locals: numeric limit only, in _package_json_hooks, append_event, and socket_supply_chain.main.
+# broad-exception-caught: socket_supply_chain catches Exception around its one network call on purpose.
+# wrong-import-position: the tests insert the scripts directory on sys.path before importing the module.
+# missing-class-docstring: the unittest classes are named for the case they cover and have no class docstring.
+# protected-access: CloneOncePinTests replaces clone_once._pin to simulate a failed pin.
+# unused-argument: fake_send keeps the send_once signature and does not use token or payload.
+disable=missing-function-docstring,
+        line-too-long,
+        duplicate-code,
+        too-many-return-statements,
+        too-many-branches,
+        too-many-statements,
+        too-many-arguments,
+        too-many-positional-arguments,
+        too-many-locals,
+        broad-exception-caught,
+        wrong-import-position,
+        missing-class-docstring,
+        protected-access,
+        unused-argument
