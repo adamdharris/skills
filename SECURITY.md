@@ -1,9 +1,9 @@
 # Reporting a security problem
 
-Report a vulnerability in this repository through GitHub private vulnerability reporting on `adamdharris/skills` (Security tab, then Report a vulnerability).
+Report a vulnerability in this repository through GitHub private vulnerability reporting. On `adamdharris/skills`, open the Security tab. Select Report a vulnerability.
 
-Keep secrets, tokens, and credentials out of public issues, pull requests, and commits. Describe the problem without pasting the secret.
+Do not put secrets, tokens, or credentials in public issues, pull requests, or commits. Describe the problem. Do not include the secret.
 
-If private advisory reporting is turned off, contact the repository owner on GitHub, say that you have a security report, and wait for a private channel before sending details.
+If GitHub private vulnerability reporting is off, contact the repository owner on GitHub. Tell the repository owner that you have a security report. Wait for a private channel. Do not send details before you have a private channel.
 
-This policy covers this repository. It stops at the boundary of third-party code that a skill reads.
+This policy covers this repository. This policy does not cover third-party code that a skill reads.
