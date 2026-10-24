@@ -153,6 +153,8 @@ def main(argv: list[str] | None = None) -> int:
         print(log_error, file=sys.stderr)
         return 1
 
+    token = os.environ.get("SOCKET_API_TOKEN", "")
+
     def record(hosts: list[str], exit_code: int) -> None:
         names = ["--run-log"]
         for flag, present in (
@@ -171,7 +173,20 @@ def main(argv: list[str] | None = None) -> int:
         if error:
             print(error, file=sys.stderr)
 
-    token = os.environ.get("SOCKET_API_TOKEN", "")
+    def publish(document: dict[str, object], hosts: list[str], exit_code: int) -> int:
+        # emit refuses an in-repository --output with SystemExit. Still record the call.
+        code = exit_code
+        try:
+            emit(document, token, args.output)
+        except SystemExit as exc:
+            status = exc.code
+            code = status if isinstance(status, int) and not isinstance(status, bool) else 1
+        except OSError:
+            print("refusing: could not write output", file=sys.stderr)
+            code = 1
+        record(hosts, code)
+        return code
+
     if args.purl:
         if not PURL_RE.fullmatch(args.purl) or any(char in args.purl for char in "\r\n\t ?#"):
             print("refusing purl", file=sys.stderr)
@@ -211,14 +226,10 @@ def main(argv: list[str] | None = None) -> int:
     }
     if not token_usable(token):
         pending["reason"] = "token-missing"
-        emit(pending, token, args.output)
-        record([], 2)
-        return 2
+        return publish(pending, [], 2)
     if not args.execute or not args.outside_sandbox:
         pending["reason"] = "not-executed"
-        emit(pending, token, args.output)
-        record([], 2)
-        return 2
+        return publish(pending, [], 2)
 
     url = request_url(args.org)
     payload = json.dumps({"components": [{"purl": purl}]}).encode("utf-8")
@@ -228,9 +239,7 @@ def main(argv: list[str] | None = None) -> int:
         message = scrub(f"{exc.__class__.__name__}: {exc}", token)
         print(message, file=sys.stderr)
         pending["reason"] = "request-failed"
-        emit(pending, token, args.output)
-        record(["api.socket.dev"], 4)
-        return 4
+        return publish(pending, ["api.socket.dev"], 4)
 
     document = {
         "request_sent": True,
@@ -241,10 +250,8 @@ def main(argv: list[str] | None = None) -> int:
         "truncated": truncated,
         "body": body,
     }
-    emit(document, token, args.output)
     code = 0 if status == 200 else 4
-    record(["api.socket.dev"], code)
-    return code
+    return publish(document, ["api.socket.dev"], code)
 
 
 if __name__ == "__main__":
